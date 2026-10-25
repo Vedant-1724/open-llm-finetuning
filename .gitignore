@@ -218,3 +218,23 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Additional Python and Jupyter files
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db
+
+# Model weights and training outputs
+*.safetensors
+*.gguf
+*.pt
+*.pth
+*.bin
+checkpoints/
+outputs/
+runs/
