@@ -1,54 +1,141 @@
-# Open LLM Fine-Tuning Lab
+# AI-6 — Fine-Tuning an Open LLM with LoRA
 
-A reproducible experiment in parameter-efficient fine-tuning of an open-weight language model using QLoRA, PEFT, and TRL. The goal is to evaluate whether fine-tuning improves consistency and usefulness on AI engineering instruction tasks.
+A Google Colab experiment exploring **parameter-efficient supervised fine-tuning** of an open-weight language model for AI engineering and machine-learning instruction tasks. The project covers instruction dataset preparation, assistant-only loss masking, PEFT LoRA training, adapter saving and reloading, held-out prompt comparisons, and training-loss visualization.
 
-> **Project status:** Repository foundation and dataset specification prepared. Training has not yet run; model behavior, loss curves, and before/after results will be added only after real experiments.
+> **Important result note:** The training run completed, but the small held-out comparison showed mixed answer quality. The experiment demonstrates an end-to-end LoRA workflow; it does **not** establish that the fine-tuned model is consistently better than the base model.
 
-## Planned experiment
+## Project goals
 
-- **Candidate base model:** [Qwen3-4B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507), subject to GPU and package compatibility checks
-- **Training method:** QLoRA with PEFT and TRL supervised fine-tuning
-- **Dataset target:** Up to 25,000 accepted, source-tracked examples across six AI engineering areas
-- **Pilot:** The existing 120-record pilot is for pipeline smoke testing only; it is not the final training dataset
-- **Compute:** Google Colab GPU; actual GPU and VRAM are recorded before training
-- **Evaluation:** Identical prompts for the base and adapter-loaded models, plus held-out test examples
+- Prepare a small, focused instruction dataset in conversational format.
+- Fine-tune an open-weight instruction model without updating all model parameters.
+- Save the LoRA adapter separately from the base model.
+- Compare the base and adapter-loaded model on identical held-out prompts.
+- Record training/evaluation loss and produce a loss-curve plot.
+- Document results and limitations honestly.
 
-## Technical areas
+## Model and approach
 
-1. Python and software fundamentals — target 4,000
-2. Machine learning fundamentals — target 4,000
-3. LLMs and Transformers — target 4,500
-4. Retrieval-Augmented Generation (RAG) — target 4,500
-5. Embeddings and vector databases — target 4,000
-6. Evaluation, deployment, and MLOps — target 4,000
+| Item | Configuration |
+|---|---|
+| Base model | [Qwen/Qwen2.5-0.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct) |
+| Fine-tuning method | Supervised fine-tuning with PEFT LoRA |
+| Quantization | None — standard FP16 LoRA, **not QLoRA** |
+| Runtime | Google Colab |
+| GPU observed in the saved run | NVIDIA Tesla T4 |
+| Training examples | 58 |
+| Validation examples | 13 |
+| Held-out test examples | 13 |
+| Comparison prompts evaluated | 8 |
+| Epochs | 2 |
+| Learning rate | 2e-4 |
+| Per-device batch size | 1 |
+| Gradient accumulation steps | 8 |
+| LoRA rank (r) | 8 |
+| LoRA alpha | 16 |
+| LoRA dropout | 0.05 |
+| Trainable parameters | 4,399,104 / 498,431,872 (~0.88%) |
 
-These are targets, not claimed final counts. We will not fill a topic quota with irrelevant or unlicensed records.
+The notebook uses assistant-only loss masking so that the model is trained to predict assistant responses rather than user prompt tokens. The exact training and data preparation steps are implemented in the notebook; use the notebook as the source of truth if any summary differs.
 
-## Repository layout
+## Dataset
 
-- `docs/dataset_specification.md` — scope, schema, source and licensing policy, and quality rules
-- `data/` — curated JSONL splits and data handling notes
-- `configs/` — versioned training configuration
-- `results/` — actual metrics, comparison outputs, and plots once available
+The notebook creates **84 authored examples** and splits them into:
+
+- **58 training examples**
+- **13 validation examples**
+- **13 test examples**
+
+This is a small experimental dataset, not a large-scale or independently validated benchmark. It is intended to demonstrate the workflow and should not be interpreted as sufficient evidence of broad domain expertise or production readiness.
 
 ## Workflow
 
-1. Inventory candidate sources and verify topic fit and licensing.
-2. Normalize suitable records to conversational JSONL.
-3. Filter, deduplicate, inspect topic balance, and document source provenance.
-4. Create final train/validation/test splits without source/concept leakage.
-5. Verify token lengths and test loading/training on the actual Colab GPU.
-6. Compare base and fine-tuned responses on fixed held-out prompts.
-7. Document configuration, loss curve, real outputs, limitations, and reproducibility steps.
+1. Install pinned versions of the required Python packages in Colab.
+2. Mount Google Drive and create project output folders.
+3. Build the authored instruction examples and write JSONL dataset splits.
+4. Load the tokenizer and base model in FP16.
+5. Configure LoRA adapters using PEFT.
+6. Format examples with the model's chat template and mask prompt tokens in the labels.
+7. Train with the Hugging Face Trainer API and evaluate on the validation split.
+8. Save the adapter and tokenizer.
+9. Reload independent base and adapter-loaded models.
+10. Generate answers for the same held-out prompts and save the comparisons.
+11. Plot and save the loss curve.
+12. Generate a report/README and package the outputs into a ZIP archive.
 
-## Dataset quality and leakage
+## Observed training results
 
-The dataset uses one JSON object per line with user/assistant messages. Examples must be technically accurate, relevant, and appropriately sourced. Dataset declarations alone do not settle the licenses of upstream material in aggregated datasets. Exact duplicates and near-duplicates will be examined. Validation and test examples remain outside training, with splitting by source/concept family where feasible. See [Dataset Specification](docs/dataset_specification.md).
+Values below are from the saved notebook outputs for the completed run.
 
-## Reproducibility and honesty
+| Metric | Observed value |
+|---|---:|
+| Final training loss | ~3.046 |
+| Final evaluation loss | ~3.040 |
+| Trainable parameters | 4.40 million |
+| Trainable parameter percentage | ~0.88% |
+| Held-out prompts with text differing from the base output | 8 / 8 |
 
-No training results are claimed until a run has completed. Training loss alone is not proof of improved answers. The final report will include the real environment, base model identifier, training configuration, accepted data counts and sources, comparison prompts and outputs, and known failure cases. Do not commit credentials, private data, large caches, or raw checkpoints unnecessarily.
+The outputs differed on all eight comparison prompts, but **different output is not the same as better output**. Manual review found a mixture of concise/useful answers and incorrect or misleading answers. Examples of failure areas included explanations of validation data, preference tuning, learning-rate schedules, comparing models, and KV caching. No reliable quality-improvement claim is made from this small comparison.
 
-## License
+Training and evaluation loss are useful diagnostics, but they do not independently measure factual accuracy, completeness, helpfulness, or safety. A stronger evaluation would use a larger, carefully reviewed held-out set and a consistent scoring rubric.
 
-The base model has its own license and terms. Dataset and code licensing will be documented separately after source review and redistribution permissions are finalized.
+## Repository contents
+
+The central reproducible artifact is the Google Colab notebook:
+
+- **AI6_FineTuning_LoRA_Colab_Compatible.ipynb** — setup, dataset construction, LoRA training, evaluation, plots, and packaging.
+
+The completed notebook also generates run artifacts such as:
+
+- **artifacts/qwen2.5-0.5b-lora-adapter/** — saved PEFT adapter and tokenizer files.
+- **reports/loss_curve.png** — training/evaluation loss plot.
+- **reports/** — report and README generated by the notebook.
+- A ZIP submission bundle containing selected outputs.
+
+**Note:** The notebook writes these generated outputs under the Google Drive project directory configured in the notebook. They are not necessarily present in this Git repository unless you explicitly copy and commit them. Avoid committing large model weights, caches, personal Drive data, or secrets.
+
+## Run the notebook
+
+1. Open the notebook in Google Colab.
+2. Select **Runtime → Change runtime type → T4 GPU** (or another compatible GPU runtime).
+3. Run the installation and setup cells from top to bottom.
+4. Allow the notebook to mount Google Drive and create its output folders.
+5. Execute the dataset, model setup, training, evaluation, plotting, and packaging cells in order.
+6. Review the generated comparison outputs and report rather than assuming fine-tuning improved quality.
+
+### Package versions used in the saved run
+
+- Python 3.13.16
+- PyTorch 2.11.0+cu130
+- Transformers 4.46.3
+- PEFT 0.13.2
+- Accelerate 1.1.1
+- Datasets 3.1.0
+
+The run produced non-fatal dependency/deprecation warnings. Colab images and package compatibility can change over time, so a fresh run may require adjustments.
+
+## Limitations and next steps
+
+- The dataset is small and authored for this experiment.
+- Eight comparisons are not enough to establish a robust performance improvement.
+- Some generated answers became less accurate after fine-tuning.
+- The loss curve does not substitute for qualitative and quantitative response evaluation.
+- A more convincing follow-up should improve and fact-check the examples, expand the held-out evaluation set, use a predefined rubric, and report scores and failure cases before claiming a gain.
+
+## Tools and libraries
+
+- Python
+- Google Colab
+- PyTorch
+- Hugging Face Transformers
+- Hugging Face Datasets
+- Hugging Face Accelerate
+- PEFT (LoRA)
+- Matplotlib
+
+## Responsible reporting
+
+This repository is an educational experiment. The results should be reported as observed, including limitations and failure cases. The base model is subject to its own model-card license and terms. Review applicable licenses for all dependencies and any data before redistribution.
+
+## Author
+
+**Vedant Joshi**
